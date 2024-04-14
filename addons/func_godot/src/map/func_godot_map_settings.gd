@@ -69,8 +69,18 @@ extends Resource
 ## A texel size of 1 will lead to a 1:1 correspondence between texture texels and lightmap texels. Larger values will produce less detailed lightmaps. To conserve memory and filesize, use the largest value that still looks good.
 @export var uv_unwrap_texel_size: float = 1.0
 
-@export_category("TrenchBroom")
+@export_category("Editor Specific")
 
-## If true, will organize Scene Tree using Trenchbroom Layers and Groups. Layers and Groups will be generated as [Node3D] nodes. 
+@export_group("TrenchBroom")
+
+## If true, will organize Scene Tree using Trenchbroom Layers and Groups. Layers and Groups will be generated as [Node3D] nodes.
 ## All structural brushes will be moved out of the Layers and Groups and merged into the Worldspawn entity.
 @export var use_trenchbroom_groups_hierarchy: bool = false
+
+
+@export_group("DarkRadiant")
+
+## Use this when building maps made in DarkRadiant (TODO: and maybe also GTKRadiant?),
+## so the geometry generator knows the vertex coordinates in the map file are
+## relative to the origin property of solid entities (except worldspawn).
+@export var vertices_relative_to_origin: bool = false

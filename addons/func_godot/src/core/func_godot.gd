@@ -25,12 +25,12 @@ func set_entity_definitions(entity_defs: Dictionary) -> void:
 		var origin_type: int = entity_defs.values()[i].get("origin_type", FuncGodotMapData.FuncGodotEntityOriginType.IGNORE)
 		map_data.set_entity_types_by_classname(classname, spawn_type, origin_type)
 
-func generate_geometry(texture_dict: Dictionary) -> void:
+func generate_geometry(texture_dict: Dictionary, relative_vertex_coords: bool) -> void:
 	var keys: Array = texture_dict.keys()
 	for key in keys:
 		var val: Vector2 = texture_dict[key]
 		map_data.set_texture_size(key, val.x, val.y)
-	geo_generator.run()
+	geo_generator.run(relative_vertex_coords)
 
 func get_entity_dicts() -> Array:
 	var ent_dicts: Array

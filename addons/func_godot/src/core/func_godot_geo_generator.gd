@@ -39,7 +39,7 @@ func sort_vertices_by_winding(a, b) -> bool:
 	
 	return a_angle < b_angle
 
-func run() -> void:
+func run(relative_vertex_coords: bool) -> void:
 	# resize arrays
 	map_data.entity_geo.resize(map_data.entities.size())
 	for i in range(map_data.entity_geo.size()):
@@ -64,12 +64,26 @@ func run() -> void:
 		var entity_geo:= map_data.entity_geo[e]
 		entity.center = Vector3.ZERO
 		
+		var origin_vec: Vector3
+		var has_origin: bool
+
+		var relative_verts := relative_vertex_coords
+		if entity.spawn_type == FuncGodotMapData.FuncGodotEntitySpawnType.WORLDSPAWN:
+			# worldspawn is always in world coordinates, and should never have an "origin" spawnarg
+			relative_verts = false
+
+		if 'origin' in entity.properties:
+			var origin_comps: PackedFloat64Array = entity.properties['origin'].split_floats(' ')
+			if origin_comps.size() > 2:
+				origin_vec = Vector3(origin_comps[0], origin_comps[1], origin_comps[2])
+				has_origin = true
+
 		for b in range(entity.brushes.size()):
 			var brush:= entity.brushes[b]
 			brush.center = Vector3.ZERO
 			var vert_count: int = 0
 			
-			generate_brush_vertices(e, b)
+			generate_brush_vertices(e, b, relative_verts, origin_vec)
 			
 			var brush_geo:= map_data.entity_geo[e].brushes[b]
 			for face in brush_geo.faces:
@@ -84,13 +98,13 @@ func run() -> void:
 			
 		if entity.brushes.size() > 0:
 			entity.center /= float(entity.brushes.size())
-			if entity.origin_type != FuncGodotMapData.FuncGodotEntityOriginType.IGNORE and 'origin' in entity.properties:
+			if has_origin and entity.origin_type != FuncGodotMapData.FuncGodotEntityOriginType.IGNORE:
 				var origin_comps: PackedFloat64Array = entity.properties['origin'].split_floats(' ')
 				if origin_comps.size() > 2:
 					if entity.origin_type == FuncGodotMapData.FuncGodotEntityOriginType.ABSOLUTE:
-						entity.center = Vector3(origin_comps[0], origin_comps[1], origin_comps[2])
+						entity.center = origin_vec
 					elif entity.origin_type == FuncGodotMapData.FuncGodotEntityOriginType.RELATIVE:
-						entity.center += Vector3(origin_comps[0], origin_comps[1], origin_comps[2])
+						entity.center += origin_vec
 	
 	var generate_vertices_task_id:= WorkerThreadPool.add_group_task(generate_vertices_task, map_data.entities.size(), 4, true)
 	WorkerThreadPool.wait_for_group_task_completion(generate_vertices_task_id)
@@ -151,7 +165,7 @@ func run() -> void:
 	var index_faces_task_id:= WorkerThreadPool.add_group_task(index_faces_task, map_data.entities.size(), 4, true)
 	WorkerThreadPool.wait_for_group_task_completion(index_faces_task_id)
 
-func generate_brush_vertices(entity_idx: int, brush_idx: int) -> void:
+func generate_brush_vertices(entity_idx: int, brush_idx: int, relative_vertex_coords: bool, origin: Vector3) -> void:
 	var entity:= map_data.entities[entity_idx]
 	var brush:= entity.brushes[brush_idx]
 	var face_count: int = brush.faces.size()
@@ -187,6 +201,9 @@ func generate_brush_vertices(entity_idx: int, brush_idx: int) -> void:
 					
 					if merged:
 						break
+
+				if relative_vertex_coords:
+					vertex += origin
 				
 				var normal: Vector3
 				if phong:

@@ -325,7 +325,7 @@ func set_func_godot_entity_definitions() -> void:
 
 ## Generate geometry from map file
 func generate_geometry() -> void:
-	func_godot.generate_geometry(texture_size_dict);
+	func_godot.generate_geometry(texture_size_dict, map_settings.vertices_relative_to_origin);
 
 ## Get a list of dictionaries representing each entity from the FuncGodot C# core
 func fetch_entity_dicts() -> Array:
