@@ -20,7 +20,7 @@ var _keep_tb_groups: bool = false
 func _init(in_map_data: FuncGodotMapData) -> void:
 	map_data = in_map_data
 
-func load(map_file: String, keep_tb_groups: bool) -> bool:
+func load(map_file: String, map_settings: FuncGodotMapSettings) -> bool:
 	current_face = FuncGodotMapData.FuncGodotFace.new()
 	current_brush = FuncGodotMapData.FuncGodotBrush.new()
 	current_entity = FuncGodotMapData.FuncGodotEntity.new()
@@ -32,7 +32,9 @@ func load(map_file: String, keep_tb_groups: bool) -> bool:
 	face_idx = -1
 	component_idx = 0
 	valve_uvs = false
-	_keep_tb_groups = keep_tb_groups
+
+	_keep_tb_groups = map_settings.use_trenchbroom_groups_hierarchy
+	_map_format = map_settings.map_format
 	
 	var map: FileAccess = FileAccess.open(map_file, FileAccess.READ)
 	if map == null:

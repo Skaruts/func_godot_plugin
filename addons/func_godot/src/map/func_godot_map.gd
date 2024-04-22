@@ -297,7 +297,7 @@ func remove_children() -> void:
 ## Parse and load [member map_file]
 func load_map() -> void:
 	var file: String = _map_file_internal
-	func_godot.load_map(file, map_settings.use_trenchbroom_groups_hierarchy)
+	func_godot.load_map(file, map_settings)
 
 ## Get textures found in [member map_file]
 func fetch_texture_list() -> Array:
