@@ -54,6 +54,12 @@ enum FuncGodotEntityOriginType {
 	RELATIVE = 2
 }
 
+enum FuncGodotMapFormat {
+	QUAKE1,
+	QUAKE3,
+	DOOM3
+}
+
 class FuncGodotFacePoints:
 	var v0: Vector3
 	var v1: Vector3
@@ -75,8 +81,16 @@ class FuncGodotFaceUVExtra:
 	var rot: float
 	var scale_x: float
 	var scale_y: float
+
+class FuncGodotD3Brush:
+	var plane: Plane
+	var x: Vector2
+	var y: Vector2
+	var offset: Vector2
 	
 class FuncGodotFace:
+	var d3_brush: FuncGodotD3Brush
+
 	var plane_points: FuncGodotFacePoints
 	var plane_normal: Vector3
 	var plane_dist: float

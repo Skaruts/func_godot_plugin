@@ -6,16 +6,17 @@ var entity_idx: int = -1
 var brush_idx: int = -1
 var face_idx: int = -1
 var component_idx: int = 0
+var d3_uv_component_idx: int = 0
 var prop_key: String = ""
 var current_property: String = ""
 var valve_uvs: bool = false
-
 var current_face: FuncGodotMapData.FuncGodotFace
 var current_brush: FuncGodotMapData.FuncGodotBrush
 var current_entity: FuncGodotMapData.FuncGodotEntity
 
 var map_data: FuncGodotMapData
 var _keep_tb_groups: bool = false
+var _map_format: int = 0
 
 func _init(in_map_data: FuncGodotMapData) -> void:
 	map_data = in_map_data
@@ -112,7 +113,9 @@ func token(buf_str: String) -> void:
 	elif buf_str == "//":
 		comment = true
 		return
-	
+
+	# printt(scope, FuncGodotMapParser.ParseScope.keys()[scope], buf_str)
+
 	match scope:
 		FuncGodotMapParser.ParseScope.FILE:
 			if buf_str == "{":
@@ -126,9 +129,14 @@ func token(buf_str: String) -> void:
 					prop_key = prop_key.left(-1)
 					set_scope(FuncGodotMapParser.ParseScope.PROPERTY_VALUE)
 			elif buf_str == "{":
-				brush_idx += 1
-				face_idx = -1
-				set_scope(FuncGodotMapParser.ParseScope.BRUSH)
+				# should include Q3 in this condition to support patches
+				if  _map_format != FuncGodotMapData.FuncGodotMapFormat.QUAKE3 \
+				and _map_format != FuncGodotMapData.FuncGodotMapFormat.DOOM3:
+					brush_idx += 1
+					face_idx = -1
+					set_scope(FuncGodotMapParser.ParseScope.BRUSH)
+				else:
+					set_scope(FuncGodotMapParser.ParseScope.DEF)
 			elif buf_str == "}":
 				commit_entity()
 				set_scope(FuncGodotMapParser.ParseScope.FILE)
@@ -257,6 +265,174 @@ func token(buf_str: String) -> void:
 			current_face.uv_extra.scale_y = float(buf_str)
 			commit_face()
 			set_scope(FuncGodotMapParser.ParseScope.BRUSH)
+
+
+
+
+
+
+
+
+		#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
+		# WIP Doom3 format support attempt below (starts in the ENTITY scope above)
+
+		# NOTES / RESEARCH:
+		#	brushDef3 format:
+		# 		(plane equation) ( ( xxscale xyscale xoffset ) ( yxscale yyscale yoffset ) ) "material"
+		#
+		#   (unlike other formats, the material path uses quotes "...", and
+		#    includes the base textures folder)
+		#
+		# 	more on Doom3 map format:
+		#		https://modwiki.dhewm3.org/MAP_(file_format)
+		#
+		# 	more on texture matrix
+		#		https://web.archive.org/web/20080308170646/http://www.doom3world.org/phpbb2/viewtopic.php?t=16228
+
+		FuncGodotMapParser.ParseScope.DEF:
+			if   buf_str == "(":
+					# if we find this here, it means we are actually in an
+					# uninitialized BRUSH scope from Q1/Q3/220 formats
+					brush_idx += 1
+					face_idx = 0
+					component_idx = 0
+					set_scope(FuncGodotMapParser.ParseScope.PLANE_0)
+			# elif buf_str == "patchDef2": set_scope(FuncGodotMapParser.ParseScope.PATCH_DEF2)
+			elif buf_str == "brushDef3": set_scope(FuncGodotMapParser.ParseScope.D3_BRUSH_0)
+			elif buf_str == "}":         set_scope(FuncGodotMapParser.ParseScope.ENTITY)
+
+		# FuncGodotMapParser.ParseScope.PATCH_DEF2:
+
+		FuncGodotMapParser.ParseScope.D3_BRUSH_0:
+			if   buf_str == "{":
+				brush_idx += 1
+				face_idx = -1
+				set_scope(FuncGodotMapParser.ParseScope.D3_BRUSH_1)
+			elif buf_str == "}":
+				set_scope(FuncGodotMapParser.ParseScope.DEF)
+		FuncGodotMapParser.ParseScope.D3_BRUSH_1:
+			if buf_str == "(":
+				face_idx += 1
+				component_idx = 0
+				current_face.d3_brush = FuncGodotMapData.FuncGodotD3Brush.new()
+				set_scope(FuncGodotMapParser.ParseScope.D3_PLANE)
+			elif buf_str == "}":
+				commit_brush()
+				set_scope(FuncGodotMapParser.ParseScope.DEF)
+		FuncGodotMapParser.ParseScope.D3_BRUSH_2:
+			if   buf_str == "(": set_scope(FuncGodotMapParser.ParseScope.D3_UVS)
+			elif buf_str == ")": set_scope(FuncGodotMapParser.ParseScope.D3_TEXTURE)
+		FuncGodotMapParser.ParseScope.D3_TEXTURE:
+			# find first '/' to exclude 'textures' folder from the string
+			var idx := buf_str.find('/') + 1
+
+			# exclude quotation marks
+			var tex_name:String = buf_str.substr(idx, buf_str.length()-(idx+1))
+
+			current_face.texture_idx = map_data.register_texture(tex_name)
+			commit_face()
+			set_scope(FuncGodotMapParser.ParseScope.D3_BRUSH_1)
+		FuncGodotMapParser.ParseScope.D3_PLANE:
+			if buf_str == ")":
+				var p := current_face.d3_brush.plane
+
+				var a := p.get_center()
+				var n := p.normal
+				var xn := Vector3(1,0,0)                # arbitrary cross vector
+				if is_equal_approx(abs(n.dot(xn)), 1):  # if vectors are too aligned
+					xn = Vector3(0,1,0)                 # use perpendicular to first arbitrary vector, so we know we're different enough
+
+				var perp_vec := n.cross(xn)
+				var b := a + perp_vec
+				var c := a + perp_vec.rotated(n, PI/2) # rotate the found vector 90 degrees around the normal to get a different perpendicular vector
+
+				current_face.plane_points.v0 = a
+				current_face.plane_points.v1 = b
+				current_face.plane_points.v2 = c
+
+				# For some reason the final plane must be inverted here so FG can generate
+				# geometry (even if the plane components were not initially inverted)
+				# To invert it, give it the points in reverse order (eg. a,b,c),
+				# or negate 'PI/2', or negate 'p.normal'
+
+				# (this plane is for debug comparison only)
+				# var final_plane := Plane(current_face.plane_points.v0, current_face.plane_points.v1, current_face.plane_points.v2)
+				# printerr("%s\t%s\t%s" % [p == final_plane, p, final_plane])
+
+				component_idx = 0
+				d3_uv_component_idx = 0
+				set_scope(FuncGodotMapParser.ParseScope.D3_BRUSH_2)
+			else:
+				# for some reason I need to invert the components here, or the map
+				# will be upside down
+				match component_idx:
+					0: current_face.d3_brush.plane.x = -float(buf_str)
+					1: current_face.d3_brush.plane.y = -float(buf_str)
+					2: current_face.d3_brush.plane.z = -float(buf_str)
+					3: current_face.d3_brush.plane.d = float(buf_str)
+
+				component_idx += 1
+		FuncGodotMapParser.ParseScope.D3_UVS:
+			if buf_str == "(":
+				if d3_uv_component_idx == 0:
+					d3_uv_component_idx += 1
+					component_idx = 0
+					set_scope(FuncGodotMapParser.ParseScope.D3_X_COMPS)
+				else:
+					component_idx = 0
+					set_scope(FuncGodotMapParser.ParseScope.D3_Y_COMPS)
+			elif buf_str == ")":
+				valve_uvs = false
+
+				var transform := Transform2D()
+				transform.x = current_face.d3_brush.x
+				transform.y = current_face.d3_brush.y
+				transform.origin = current_face.d3_brush.offset
+
+				var uv:    Vector2 = transform.origin
+				var rot:   float   = -rad_to_deg(transform.get_rotation())
+				if is_zero_approx(abs(rot - round(rot))):
+					rot = round(rot)
+
+				var scale: Vector2 = transform.get_scale()
+
+				# printerr("%20s\t%5s\t%20s\t%20s" % [uv, rot, scale, transform])#, current_face.d3_tex)
+
+				current_face.uv_standard  = uv
+				current_face.uv_extra.rot = rot
+				current_face.uv_extra.scale_x = scale.x
+				current_face.uv_extra.scale_y = scale.y
+
+				set_scope(FuncGodotMapParser.ParseScope.D3_TEXTURE)
+		FuncGodotMapParser.ParseScope.D3_X_COMPS:
+			if buf_str == ")":
+				set_scope(FuncGodotMapParser.ParseScope.D3_UVS)
+			else:
+				match component_idx:
+					0: current_face.d3_brush.x.x = float(buf_str)
+					1: current_face.d3_brush.x.y = float(buf_str)
+					2: current_face.d3_brush.offset.x = float(buf_str)
+				component_idx += 1
+
+		FuncGodotMapParser.ParseScope.D3_Y_COMPS:
+			if buf_str == ")":
+				set_scope(FuncGodotMapParser.ParseScope.D3_UVS)
+			else:
+				match component_idx:
+					0: current_face.d3_brush.y.x = float(buf_str)
+					1: current_face.d3_brush.y.y = float(buf_str)
+					2: current_face.d3_brush.offset.y = float(buf_str)
+				component_idx += 1
+
+		#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
+
+
+
+
+
+
+
+
 				
 func commit_entity() -> void:
 	if current_entity.properties.has('_tb_type') and map_data.entities.size() > 0:
@@ -277,7 +453,8 @@ func commit_entity() -> void:
 func commit_brush() -> void:
 	current_entity.brushes.append(current_brush)
 	current_brush = FuncGodotMapData.FuncGodotBrush.new()
-	
+
+
 func commit_face() -> void:
 	var v0v1: Vector3 = current_face.plane_points.v1 - current_face.plane_points.v0
 	var v1v2: Vector3 = current_face.plane_points.v2 - current_face.plane_points.v1
@@ -294,10 +471,20 @@ enum ParseScope{
 	COMMENT,
 	ENTITY,
 	PROPERTY_VALUE,
-	BRUSH,
+	BRUSH,		# regular Q1/220 brush
 	PLANE_0,
 	PLANE_1,
 	PLANE_2,
+	DEF,
+	D3_BRUSH_0, # D3 brush
+	D3_BRUSH_1,
+	D3_BRUSH_2,
+	D3_PLANE,
+	D3_UVS,
+	D3_X_COMPS,
+	D3_Y_COMPS,
+	D3_TEXTURE,
+	PATCH_DEF2, # patch
 	TEXTURE,
 	U,
 	V,
