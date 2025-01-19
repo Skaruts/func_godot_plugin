@@ -1018,9 +1018,17 @@ func apply_properties_and_finish() -> void:
 								var prop_color: Color = prop_default
 								var prop_comps: PackedStringArray = prop_string.split(" ")
 								if prop_comps.size() > 2:
-									prop_color.r8 = prop_comps[0].to_int()
-									prop_color.g8 = prop_comps[1].to_int()
-									prop_color.b8 = prop_comps[2].to_int()
+									# NOTE (Skaruts): support for DarkRadiant float colors (numbers must include decimal
+									#   places, so prefer using DR color editing tools than typing them by hand).
+									#   I find this a bit hacky, but I don't have any better ideas.
+									if '.' in prop_comps[0] or '.' in prop_comps[1] or '.' in prop_comps[2]:
+										prop_color.r = prop_comps[0].to_float()
+										prop_color.g = prop_comps[1].to_float()
+										prop_color.b = prop_comps[2].to_float()
+									else:
+										prop_color.r8 = prop_comps[0].to_int()
+										prop_color.g8 = prop_comps[1].to_int()
+										prop_color.b8 = prop_comps[2].to_int()
 									prop_color.a = 1.0
 								else:
 									push_error("Invalid Color format for \'" + property + "\' in entity \'" + classname + "\': " + prop_string)
