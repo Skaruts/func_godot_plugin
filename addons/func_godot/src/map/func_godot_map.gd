@@ -448,12 +448,37 @@ func build_entity_nodes() -> Array:
 										angles = Vector3(angles_raw[0], angles_raw[1], -angles_raw[2])
 							else:
 								push_error("Invalid vector format for \'" + key + "\' in entity \'" + classname + "\'")
+						# NOTE (Skaruts): support rotation matrices from DarkRadiant
+						#    (Using local functions here because I don't know where else to put them)
+						elif "rotation" in properties:
+							var _to_gdvec := func(v: Vector3) -> Vector3:
+								return Vector3(v.y, v.z, v.x)
+							var _to_gd_basis := func(b: Basis) -> Basis:
+								return Basis(_to_gdvec.call(b.y), _to_gdvec.call(b.z), _to_gdvec.call(b.x))
+
+							var comps: Array = properties.rotation.split(' ', false)
+
+							if comps.size() == 9:
+								for i in comps.size():
+									comps[i] = comps[i].to_float()
+
+								var b:Basis = _to_gd_basis.call(Basis(
+									Vector3(comps[0],  comps[1], comps[2]),
+									Vector3(comps[3],  comps[4], comps[5]),
+									Vector3(comps[6],  comps[7], comps[8]),
+								))
+
+								angles = b.get_euler() * 180/PI
+							else:
+								push_error("Invalid matrix format for 'rotation' in entity \'" + classname + "\'")
 						elif 'angle' in properties:
 							var angle = properties['angle']
 							if not angle is float:
 								angle = float(angle)
 							angles.y += angle
-						angles.y += 180
+						# NOTE (Skaruts): don't need to add 180 when 'angles' comes from a rotation matrix
+						if not "rotation" in properties:
+							angles.y += 180
 						node.rotation_degrees = angles
 				else:
 					node = Node3D.new()
