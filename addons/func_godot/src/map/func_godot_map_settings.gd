@@ -4,6 +4,9 @@
 class_name FuncGodotMapSettings
 extends Resource
 
+## The map format being used.
+@export_enum("Quake1/Valve220", "Quake3", "Doom3") var map_format:int = 0
+
 ## Ratio between map editor units and Godot units. FuncGodot will divide brush coordinates by this number when building. This does not affect entity properties unless scripted to do so.
 var scale_factor: float = 0.03125
 @export var inverse_scale_factor: float = 32.0 :

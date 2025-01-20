@@ -8,7 +8,7 @@ func register_texture(name: String) -> int:
 	for i in range(textures.size()):
 		if textures[i].name == name:
 			return i
-	
+
 	textures.append(FuncGodotTextureData.new(name))
 	return textures.size() - 1
 
@@ -44,6 +44,12 @@ func clear() -> void:
 # --------------------------------------------------------------------------------------------------
 # Nested Types
 # --------------------------------------------------------------------------------------------------
+enum FuncGodotMapFormat {
+	QUAKE1,
+	QUAKE3,
+	DOOM3,
+}
+
 enum FuncGodotEntitySpawnType {
 	WORLDSPAWN = 0,
 	MERGE_WORLDSPAWN = 1,
@@ -84,20 +90,27 @@ class FuncGodotFacePoints:
 class FuncGodotValveTextureAxis:
 	var axis: Vector3
 	var offset: float
-	
+
 class FuncGodotValveUV:
 	var u: FuncGodotValveTextureAxis
 	var v: FuncGodotValveTextureAxis
-	
+
 	func _init() -> void:
 		u = FuncGodotValveTextureAxis.new()
 		v = FuncGodotValveTextureAxis.new()
-	
+
 class FuncGodotFaceUVExtra:
 	var rot: float
 	var scale_x: float
 	var scale_y: float
-	
+
+
+class FuncGodotD3Brush:
+	var plane: Plane
+	var x: Vector2
+	var y: Vector2
+	var offset: Vector2
+
 class FuncGodotFace:
 	var plane_points: FuncGodotFacePoints
 	var plane_normal: Vector3
@@ -107,7 +120,8 @@ class FuncGodotFace:
 	var uv_standard: Vector2
 	var uv_valve: FuncGodotValveUV
 	var uv_extra: FuncGodotFaceUVExtra
-	
+	var d3_brush: FuncGodotD3Brush
+
 	func _init() -> void:
 		plane_points = FuncGodotFacePoints.new()
 		uv_valve = FuncGodotValveUV.new()
@@ -124,13 +138,13 @@ class FuncGodotEntity:
 	var spawn_type: FuncGodotEntitySpawnType
 	var origin_type: FuncGodotEntityOriginType
 	var metadata_inclusion_flags: FuncGodotEntityMetadataInclusionFlags
-	
+
 class FuncGodotFaceVertex:
 	var vertex: Vector3
 	var normal: Vector3
 	var uv: Vector2
 	var tangent: Vector4
-	
+
 	func duplicate() -> FuncGodotFaceVertex:
 		var new_vert := FuncGodotFaceVertex.new()
 		new_vert.vertex = vertex
@@ -138,14 +152,14 @@ class FuncGodotFaceVertex:
 		new_vert.uv = uv
 		new_vert.tangent = tangent
 		return new_vert
-	
+
 class FuncGodotFaceGeometry:
 	var vertices: Array[FuncGodotFaceVertex]
 	var indicies: Array[int]
 
 class FuncGodotBrushGeometry:
 	var faces: Array[FuncGodotFaceGeometry]
-	
+
 class FuncGodotEntityGeometry:
 	var brushes: Array[FuncGodotBrushGeometry]
 
@@ -154,6 +168,6 @@ class FuncGodotTextureData:
 	var width: int
 	var height: int
 	var type: FuncGodotTextureType
-	
+
 	func _init(in_name: String):
 		name = in_name

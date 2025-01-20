@@ -10,8 +10,8 @@ var map_settings: FuncGodotMapSettings = null:
 		map_settings = new
 var surface_gatherer:= FuncGodotSurfaceGatherer.new(map_data, map_settings)
 
-func load_map(filename: String, keep_tb_groups: bool) -> void:
-	map_parser.load_map(filename, keep_tb_groups)
+func load_map(filename: String, map_settings: FuncGodotMapSettings) -> void:
+	map_parser.load_map(filename, map_settings)
 
 func get_texture_list() -> PackedStringArray:
 	var g_textures: PackedStringArray
