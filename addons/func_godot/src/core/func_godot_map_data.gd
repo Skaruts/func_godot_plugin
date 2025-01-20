@@ -58,6 +58,7 @@ enum FuncGodotEntityOriginType {
 	BOUNDS_CENTER = 4,
 	BOUNDS_MINS = 5,
 	BOUNDS_MAXS = 6,
+	RELATIVE_VERTICES = 7,
 }
 
 enum FuncGodotEntityMetadataInclusionFlags {

@@ -18,6 +18,7 @@ enum OriginType {
 	BOUNDS_CENTER = 4, ## Use the center of the entity's bounding box for center position. This is the default option and recommended for most entities.
 	BOUNDS_MINS = 5, ## Use the lowest bounding box coordinates for center position. This is standard Quake and Half-Life brush entity behavior.
 	BOUNDS_MAXS = 6, ## Use the highest bounding box coordinates for center position.
+	RELATIVE_VERTICES = 7, ## Calculate vertex positions relative to the ´origin` class property
 }
 
 enum CollisionShapeType {

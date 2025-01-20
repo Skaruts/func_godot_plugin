@@ -138,7 +138,7 @@ func get_valve_tangent(face: FuncGodotMapData.FuncGodotFace) -> Vector4:
 	var v_sign = -signf(face.plane_normal.cross(u_axis).dot(v_axis))
 	return Vector4(u_axis.x, u_axis.y, u_axis.z, v_sign)
 
-func generate_brush_vertices(entity_idx: int, brush_idx: int) -> void:
+func generate_brush_vertices(entity_idx: int, brush_idx: int, origin:Vector3) -> void:
 	var entity: FuncGodotMapData.FuncGodotEntity = map_data.entities[entity_idx]
 	var brush: FuncGodotMapData.FuncGodotBrush = entity.brushes[brush_idx]
 	var face_count: int = brush.faces.size()
@@ -174,6 +174,9 @@ func generate_brush_vertices(entity_idx: int, brush_idx: int) -> void:
 
 					if merged:
 						break
+
+				if entity.origin_type == FuncGodotMapData.FuncGodotEntityOriginType.RELATIVE_VERTICES:
+					vertex += origin
 
 				var normal: Vector3 = face.plane_normal
 				if phong:
@@ -244,6 +247,18 @@ func run() -> void:
 
 		entity.center = Vector3.ZERO
 
+		# NOTE (Skaruts): if 'entity.origin_type' is RELATIVE_VERTICES, then
+		#   we need to preemptively store the origin vector, so it can be
+		#   added to the vertex coords in  'generate_brush_vertices'
+		var origin_vec: Vector3
+
+		# NOTE (Skaruts): I believe worldspawn should be world coordinates and have no "origin" property
+		if entity.spawn_type != FuncGodotMapData.FuncGodotEntitySpawnType.WORLDSPAWN \
+		and 'origin' in entity.properties:
+			var origin_comps: PackedFloat64Array = entity.properties['origin'].split_floats(' ')
+			if origin_comps.size() > 2:
+				origin_vec = Vector3(origin_comps[0], origin_comps[1], origin_comps[2])
+
 		for b in range(entity.brushes.size()):
 			var brush: FuncGodotMapData.FuncGodotBrush = entity.brushes[b]
 			brush.center = Vector3.ZERO
@@ -259,8 +274,8 @@ func run() -> void:
 					if map_data.textures[brush.faces[face_idx].texture_idx].type != brush_texture_type:
 						brush_texture_type = FuncGodotMapData.FuncGodotTextureType.NORMAL # Reset face type if it doesn't match
 						break
-			generate_brush_vertices(e, b)
 
+			generate_brush_vertices(e, b, origin_vec)
 
 			var brush_geo: FuncGodotMapData.FuncGodotBrushGeometry = map_data.entity_geo[e].brushes[b]
 			for face in brush_geo.faces:
@@ -296,15 +311,15 @@ func run() -> void:
 
 		if entity.origin_type != FuncGodotMapData.FuncGodotEntityOriginType.BOUNDS_CENTER and entity.brushes.size() > 0:
 			match entity.origin_type:
-				FuncGodotMapData.FuncGodotEntityOriginType.ABSOLUTE, FuncGodotMapData.FuncGodotEntityOriginType.RELATIVE:
+				FuncGodotMapData.FuncGodotEntityOriginType.ABSOLUTE,        \
+				FuncGodotMapData.FuncGodotEntityOriginType.RELATIVE,        \
+				FuncGodotMapData.FuncGodotEntityOriginType.RELATIVE_VERTICES:
 					if 'origin' in entity.properties:
-						var origin_comps: PackedFloat64Array = entity.properties['origin'].split_floats(' ')
-						if origin_comps.size() > 2:
-							if entity.origin_type == FuncGodotMapData.FuncGodotEntityOriginType.ABSOLUTE:
-								entity.center = Vector3(origin_comps[0], origin_comps[1], origin_comps[2])
-							else: # OriginType.RELATIVE
-								entity.center += Vector3(origin_comps[0], origin_comps[1], origin_comps[2])
-				
+						if entity.origin_type != FuncGodotMapData.FuncGodotEntityOriginType.RELATIVE:
+							entity.center = origin_vec
+						else: # OriginType.RELATIVE
+							entity.center += origin_vec
+
 				FuncGodotMapData.FuncGodotEntityOriginType.BRUSH:
 					if origin_mins != Vector3.INF:
 						entity.center = origin_maxs - ((origin_maxs - origin_mins) * 0.5)
